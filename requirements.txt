@@ -1,0 +1,25 @@
+# /home/kuies/docker_data/line_webhook/requirements.txt
+flask
+line-bot-sdk
+gunicorn
+python-dotenv
+pytz
+yfinance
+requests
+openai
+schedule
+beautifulsoup4
+lxml
+selenium
+feedparser
+datetime
+opencc
+firecrawl
+readability-lxml
+html2image
+yfinance
+mplfinance
+matplotlib
+pandas
+numpy
+# 如果未來有其他依賴也加到這裡
