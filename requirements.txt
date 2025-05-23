@@ -22,4 +22,5 @@ mplfinance
 matplotlib
 pandas
 numpy
+scipy
 # 如果未來有其他依賴也加到這裡
