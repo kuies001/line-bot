@@ -619,8 +619,30 @@ def get_market_index():
         return f"❌ 讀取 {display_name} 失敗：{e}"
 
 
+def is_business_day(dt=None):
+    import datetime
+    import pytz
+    import requests
+
+    tz = pytz.timezone("Asia/Taipei")
+    if dt is None:
+        dt = datetime.datetime.now(tz)
+    # 週六週日直接 false
+    if dt.weekday() >= 5:
+        return False
+
+    # 用公開 API 檢查台灣是否為工作日（政府開放資料）
+    today_str = dt.strftime("%Y%m%d")
+    try:
+        url = f"https://cdn.jsdelivr.net/gh/ruyut/TaiwanCalendar/data/{dt.year}.json"
+        res = requests.get(url, timeout=5)
+        holiday_list = res.json()
+        return holiday_list.get(today_str, 1) == 0
+    except:
+        # 如果查不到就退而求其次，平日都當作開市
+        return True
+
 # ====== 高雄市天氣查詢函數 ======
-# 保持原樣
 def get_kaohsiung_weather():
     """
     查詢高雄市今日天氣預報 (來自 CWA F-C0032-001 API)
@@ -872,7 +894,7 @@ def get_combined_system_prompt(user_id: str) -> str:
         return f"{global_prompt}\n\n{personal_prompt}".strip()
     except Exception as e:
         print(f"ERROR: Failed to combine prompts: {e}", file=sys.stderr)
-        return "你是一個擅長分析以及提供資訊的 專家，以下是務必遵守的事項：✅️要繁體中文回覆、✅️僅能使用純文字加上emoji符號的排版回覆，❌️絕不使用任何markdown、高亮、或標註重點如：**的語法，✅️回覆總字數請控制在650以內，✅️總字數部分不需額外標示，✅️你將對於問題的答案多次檢查無誤後再回覆，若不知道就說不知道，✅️如有佐證答案的出處或數據也將一併附上。另外提到這些名字或資訊，你將知道的如下列表：凱翔=至高無上的開發者=有養一隻叫ㄖㄖ的貓、吳小心=吳心=職業國中理化老師=喜歡麻古飲料的0.5分糖茶飲=喜歡吃火鍋=最近買了山中小屋桌遊=我的好朋友=男同志、大叔=吳小心男友=吳心男友=男同志、廣廣=胡唯昭=職業公務人員=蝴蝶蘭研究員=台大園藝系畢業=有養五隻貓，其中一隻叫天龍貓=最近在永康買了透天厝=我的好姊妹、阿修=謝馬修=職業房務人員=喜歡周星馳電影的各種笑點=我的好朋友=男同志=最近在玩魔物獵人、ㄖㄋ=人呢=乳娘=你在哪裡的意思、施施=睡覺的意思、ㄕㄕ=需根據上下文判斷可能是睡覺或帥帥的意思、ㄐㄕ=結實的意思、ㄕㄐㄕ=帥結實或瘦結實、ㄨㄊ=無套性愛=不戴套的意思、ㄓㄌ=蟑螂的意思、路夜=路竹夜市、湖夜=大湖夜市、學弟=廣廣男朋友=胡唯昭的男友或伴侶、另外若有人提及修女噴屎笑話及故事=要出現修女長跟著胡鬧亂入的情節=端莊的修女形象跟慌張及笨手笨腳急忙要拉屎的衝突且幽默故事情節。使用動畫式吐槽，類似自己說然後自嘲的方式，但不要太多，只需要一句話或一段話就好。除非當你被要求**講笑話**時才會盡可能加上各種描述並拉長篇幅來將故事人物鮮明活化。"
+        return "你是一個擅長分析以及提供資訊的專家。"
 
 # ====== 呼叫 OpenRouter API 的函數 ======
 from opencc import OpenCC
@@ -1131,13 +1153,11 @@ def handle_message(event):
         tsmc_report = get_stock_price("2330", "台積電")
         weather_raw = get_kaohsiung_weather()
         weather_line = weather_raw.strip()
-        # AQI
         aqi_value, aqi_source, aqi_sitename = get_aqi_with_fallback()
         aqi_emoji = get_aqi_emoji(aqi_value) if aqi_value else "❓"
         aqi_comment = get_aqi_comment(aqi_value)
         aqi_line = f"🍃 AQI：{aqi_emoji} {to_emoji_number(aqi_value) if aqi_value else '❓'}（{aqi_sitename if aqi_sitename else ''}）\n{aqi_comment}"
 
-        # 股市
         market_lines = market_report.split('\n')
         tsmc_lines = tsmc_report.split('\n')
         market_simple = '\n'.join(market_lines[:3])
@@ -1150,32 +1170,39 @@ def handle_message(event):
             f"{aqi_line}"
         )
 
-        # 你的位置是 /home/kuies/docker_data/line_webhook/
-        subprocess.run(
-            ["/usr/local/bin/python3", "/app/plot_twse_intraday.py"],
-            check=True,
-        )
-        # ====== 新增這段：把現成走勢圖加進回覆 ======
-        img_url = f"https://rpi.kuies.tw/static/twse_intraday.png?nocache={random.randint(1000,9999)}"
-
-        messages = [
-            TextMessage(text=combined_report),
-            ImageMessage(
-                original_content_url=img_url,
-                preview_image_url=img_url
-            )
-        ]
-
+        # 主訊息一定先回
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
             line_bot_api.reply_message_with_http_info(
                 ReplyMessageRequest(
                     reply_token=reply_token,
-                    messages=messages
+                    messages=[TextMessage(text=combined_report)]
                 )
             )
 
+        # 圖片獨立try
+        weather_img_url, twse_img_url = None, None
+        if is_business_day():
+            try:
+                weather_data = {...}
+                aqi_data = {...}
+                html = build_weather_aqi_html(weather_data, aqi_data)
+                weather_img_url = render_html_to_image(html)
+            except Exception as e:
+                print(f"產天氣圖卡掛掉：{e}", file=sys.stderr)
+            try:
+                subprocess.run(
+                    ["/usr/local/bin/python3", "/app/plot_twse_intraday.py"],
+                    check=True,
+                )
+                twse_img_url = f"https://rpi.kuies.tw/static/twse_intraday.png?nocache={random.randint(1000,9999)}"
+            except Exception as e:
+                print(f"產分時圖掛掉：{e}", file=sys.stderr)
+
+            # 用threading推圖片
+            threading.Thread(target=send_extra_images, args=(source_user_id, weather_img_url, twse_img_url)).start()
         return "OK"
+
         # 先產圖
         img_path = gen_twse_intraday_chart()
         img_url = "https://rpi.kuies.tw/static/twse_intraday.png"
