@@ -1,8 +1,9 @@
 __pycache__/
+config/
+venv/
 *.pyc
 *.pyo
 *.pyd
-venv/
 .env
 .DS_Store
-config/
+*png
