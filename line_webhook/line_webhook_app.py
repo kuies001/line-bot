@@ -23,7 +23,8 @@ from linebot.v3.messaging import (
     MessagingApi,
     TextMessage,
     ImageMessage,
-    ReplyMessageRequest
+    ReplyMessageRequest,
+    PushMessageRequest,
 )
 from linebot.v3.webhooks import (
     MessageEvent,
@@ -1444,7 +1445,7 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
     return f"""
     <html>
     <body style="margin:0;padding:0;">
-    <div style="width:600px;height:315px;
+    <div id="screenshot-target" style="width:600px;height:315px;
         background:linear-gradient(to bottom,#fff9f9,#f0faff);
         padding:30px 40px;box-sizing:border-box;
         font-family:'Noto Sans TC',sans-serif;
@@ -1571,7 +1572,11 @@ def send_extra_images(user_id: str, weather_img_url: Optional[str], twse_img_url
                     )
                 )
             if messages:
-                line_bot_api.push_message(user_id, messages)
+                req = PushMessageRequest(to=user_id, messages=messages)
+                line_bot_api.push_message_with_http_info(
+                    req,
+                    x_line_retry_key=str(uuid.uuid4())
+                )
     except Exception as e:
         print(f"DEBUG: Failed to push extra images: {e}", file=sys.stderr)
 
