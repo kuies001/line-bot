@@ -47,6 +47,9 @@ import mplfinance as mpf
 import matplotlib.pyplot as plt
 import pandas as pd
 
+# 共享目錄路徑，可透過環境變數 SHARED_DIR 覆寫
+SHARED_DIR = os.getenv('SHARED_DIR', '/shared')
+
 # 設定台灣時區
 tz = pytz.timezone("Asia/Taipei")
 
@@ -87,10 +90,10 @@ def rollover_prompt():
     print(f'rollover prompt to {dst}')
 
 def archive_html2img_output():
-    """Archive /shared directory into dated tar.gz and clean the folder."""
+    """Archive SHARED_DIR into dated tar.gz and clean the folder."""
     today = datetime.now(tz).strftime('%Y-%m-%d')
-    src_dir = '/shared'
-    dst_root = '/shared/archive'
+    src_dir = SHARED_DIR
+    dst_root = os.path.join(SHARED_DIR, 'archive')
     os.makedirs(dst_root, exist_ok=True)
     archive_base = os.path.join(dst_root, f'html2img_{today}')
     try:
@@ -152,12 +155,12 @@ if not EPA_API_KEY:
 
 
 # ====== 初始化 Flask App ======
-app = Flask(__name__, static_folder="/shared", static_url_path="/static")
+app = Flask(__name__, static_folder=SHARED_DIR, static_url_path="/static")
 
 # =====Flask 靜態檔案服務的路由=====
 @app.route('/static/<path:filename>')
 def static_files(filename):
-    return send_from_directory('/shared', filename)
+    return send_from_directory(SHARED_DIR, filename)
 
 # 初始化 LINE Messaging API 客戶端和 Webhook 處理器
 configuration = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
@@ -876,7 +879,9 @@ import matplotlib.dates as mdates
 from datetime import datetime
 import pytz
 
-def gen_twse_intraday_chart(out_path='/shared/twse_intraday.png'):
+def gen_twse_intraday_chart(out_path=None):
+    if out_path is None:
+        out_path = os.path.join(SHARED_DIR, 'twse_intraday.png')
     tz = pytz.timezone("Asia/Taipei")
     today = datetime.now(tz).strftime('%Y-%m-%d')
     ticker = yf.Ticker("^TWII")
@@ -1546,9 +1551,9 @@ def render_html_to_image(html_content: str) -> str:
             if not filename:
                 raise ValueError("Missing filename in html2img response")
 
-            src_path = f"/shared/{filename}"
+            src_path = os.path.join(SHARED_DIR, filename)
             dst_filename = f"{uuid.uuid4().hex}.png"
-            dst_path = f"/shared/{dst_filename}"
+            dst_path = os.path.join(SHARED_DIR, dst_filename)
             shutil.copy(src_path, dst_path)
             print(f"✅ 圖片成功儲存：{dst_path}", file=sys.stderr)
             # **這裡改成 /static 路徑**

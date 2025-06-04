@@ -5,14 +5,16 @@ import matplotlib.font_manager as fm
 import numpy as np
 import matplotlib.ticker as mticker
 import datetime
+import os
 
 from matplotlib.font_manager import FontProperties
 
 import numpy as np
 from scipy.interpolate import make_interp_spline
 
-CSV_PATH = "/shared/twse_intraday.csv"
-OUT_PATH = "/shared/twse_intraday.png"
+SHARED_DIR = os.getenv("SHARED_DIR", "/shared")
+CSV_PATH = os.path.join(SHARED_DIR, "twse_intraday.csv")
+OUT_PATH = os.path.join(SHARED_DIR, "twse_intraday.png")
 
 df = pd.read_csv(CSV_PATH)
 
