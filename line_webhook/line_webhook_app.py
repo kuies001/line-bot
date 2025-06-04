@@ -1478,7 +1478,6 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
 import uuid
 
 def render_html_to_image(html_content: str) -> str:
-    """Render HTML via html2img container and return public image URL."""
     try:
         print("🧪 render_html_to_image(): 發送 HTML 給 html2img container...", file=sys.stderr)
         response = requests.post(
@@ -1488,7 +1487,6 @@ def render_html_to_image(html_content: str) -> str:
             timeout=15,
         )
         if response.status_code == 200:
-            # html2img returns JSON { filename: ... }
             info = response.json()
             filename = info.get("filename")
             if not filename:
@@ -1499,7 +1497,8 @@ def render_html_to_image(html_content: str) -> str:
             dst_path = f"/shared/{dst_filename}"
             shutil.copy(src_path, dst_path)
             print(f"✅ 圖片成功儲存：{dst_path}", file=sys.stderr)
-            return f"https://rpi.kuies.tw/shared/{dst_filename}"
+            # **這裡改成 /static 路徑**
+            return f"https://rpi.kuies.tw/static/{dst_filename}"
         else:
             print(
                 f"❌ HTML2IMG 失敗：{response.status_code}, {response.text}",

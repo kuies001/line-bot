@@ -24,7 +24,8 @@ services:
       AQICN_TOKEN: ${AQICN_TOKEN}
     networks:
       - botnet
-
+    user: "1000:1000"
+    
   html2img:
     build:
       context: ./html2img
@@ -35,6 +36,7 @@ services:
       - /home/kuies/html2img_output:/shared
     networks:
       - botnet
+    user: "1000:1000"
 
 networks:
   botnet:
