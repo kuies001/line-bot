@@ -1,0 +1,40 @@
+services:
+  line_webhook:
+    build:
+      context: ./line_webhook
+    container_name: line_webhook_bot
+    restart: always
+    ports:
+      - "1111:5000"
+    volumes:
+      - /home/kuies/docker_data/line_webhook:/app
+      - ./line_webhook/logs:/app/logs
+      - ./line_webhook/config:/app/config
+      - /home/kuies/html2img_output:/shared
+    environment:
+      TZ: Asia/Taipei
+      PORT: 5000
+      LINE_CHANNEL_SECRET: ${LINE_CHANNEL_SECRET}
+      LINE_CHANNEL_ACCESS_TOKEN: ${LINE_CHANNEL_ACCESS_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      CWA_API_KEY: ${CWA_API_KEY}
+      EPA_API_KEY: ${EPA_API_KEY}
+      LLM_PROMPT_FILE: ${LLM_PROMPT_FILE}
+      LLM_POLLING_INTERVAL_MINUTES: ${LLM_POLLING_INTERVAL_MINUTES}
+      AQICN_TOKEN: ${AQICN_TOKEN}
+    networks:
+      - botnet
+
+  html2img:
+    build:
+      context: ./html2img
+    container_name: html2img
+    ports:
+      - "3000:3000"
+    volumes:
+      - /home/kuies/html2img_output:/shared
+    networks:
+      - botnet
+
+networks:
+  botnet:

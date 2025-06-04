@@ -1,0 +1,14 @@
+{
+  "name": "html2img-server",
+  "version": "1.0.0",
+  "description": "HTML to Image Server using Puppeteer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^21.0.0",
+    "uuid": "^9.0.0"
+  }
+}
