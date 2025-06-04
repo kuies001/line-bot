@@ -18,10 +18,15 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 
 // ✅ RPi5 環境專用：舊版 headless 模式 + chromium 路徑
+// 依序嘗試不同的 chromium 執行檔路徑
+const CHROMIUM_PATH = fs.existsSync('/usr/bin/chromium')
+  ? '/usr/bin/chromium'
+  : '/usr/bin/chromium-browser';
+
 async function getBrowser() {
   return await puppeteer.launch({
     headless: 'old',
-    executablePath: '/usr/bin/chromium', // 或 '/usr/bin/chromium-browser'，取決於 Dockerfile 安裝的實際路徑
+    executablePath: CHROMIUM_PATH,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -141,3 +146,4 @@ app.listen(PORT, () => {
   console.log(`🚀 html2img server 已啟動：port ${PORT}`);
   console.log(`💾 Output directory mounted at: ${OUTPUT_DIR}`);
 });
+
