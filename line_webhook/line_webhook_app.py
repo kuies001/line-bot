@@ -1478,24 +1478,33 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
 import uuid
 
 def render_html_to_image(html_content: str) -> str:
+    """Render HTML via html2img container and return public image URL."""
     try:
         print("🧪 render_html_to_image(): 發送 HTML 給 html2img container...", file=sys.stderr)
         response = requests.post(
             "http://html2img:3000/render",
             data=html_content.encode("utf-8"),
             headers={"Content-Type": "text/html"},
-            timeout=15
+            timeout=15,
         )
         if response.status_code == 200:
-            # 用 UUID 命名避免覆蓋
-            filename = f"{uuid.uuid4().hex}.png"
-            file_path = f"/shared/{filename}"
-            with open(file_path, "wb") as f:
-                f.write(response.content)
-            print(f"✅ 圖片成功儲存：{file_path}", file=sys.stderr)
-            return f"https://rpi.kuies.tw/shared/{filename}"
+            # html2img returns JSON { filename: ... }
+            info = response.json()
+            filename = info.get("filename")
+            if not filename:
+                raise ValueError("Missing filename in html2img response")
+
+            src_path = f"/shared/{filename}"
+            dst_filename = f"{uuid.uuid4().hex}.png"
+            dst_path = f"/shared/{dst_filename}"
+            shutil.copy(src_path, dst_path)
+            print(f"✅ 圖片成功儲存：{dst_path}", file=sys.stderr)
+            return f"https://rpi.kuies.tw/shared/{dst_filename}"
         else:
-            print(f"❌ HTML2IMG 失敗：{response.status_code}, {response.text}", file=sys.stderr)
+            print(
+                f"❌ HTML2IMG 失敗：{response.status_code}, {response.text}",
+                file=sys.stderr,
+            )
             return "https://i.imgur.com/yT8VKpP.png"
     except Exception as e:
         print(f"❌ HTML2IMG 呼叫錯誤：{e}", file=sys.stderr)
