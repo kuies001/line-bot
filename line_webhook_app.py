@@ -65,9 +65,12 @@ EPA_API_KEY = os.getenv('EPA_API_KEY') # EPA AQI API 金鑰
 
 
 # LLM的prompt檔案
-load_dotenv()  
-PROMPT_FILE  = os.getenv('LLM_PROMPT_FILE')      # /app/config/llm_config.json  
-OVERRIDE_FILE = os.getenv('HISTORY_FILE')        # /app/config/llm_config_old.json  
+load_dotenv()
+PROMPT_FILE  = os.getenv('LLM_PROMPT_FILE')      # /app/config/llm_config.json
+# 路徑存放每日覆寫的 Prompt 版本，和 daily_rollover.py 使用的環境變數名稱一致
+OVERRIDE_FILE = os.getenv('LLM_HISTORY_FILE', '/app/config/llm_config_old.json')
+# 對話歷史檔 (預設值會放在 /app/config/history_default.json)
+HISTORY_FILE = os.getenv('HISTORY_FILE', '/app/config/history_default.json')
 
 def load_system_prompt():  
     with open(OVERRIDE_FILE, 'r', encoding='utf-8') as f:  
@@ -374,7 +377,7 @@ def get_stock_price(ticker_symbol: str, display_name: str):
                       # 如果 previous_close 也沒有，則嘗試從 history 中獲取前一天的收盤價
                       if previous_close is None and len(hist) > 1:
                            previous_close = hist.iloc[-2]['Close']
-                           print(f"DEBUG: Falling back to history second last close for {full_ticker} as previousClose: {previous_price}", file=sys.stderr)
+                           print(f"DEBUG: Falling back to history second last close for {full_ticker} as previousClose: {previous_close}", file=sys.stderr)
                       elif previous_close is None and len(hist) == 1:
                            # 只有一天的歷史數據，且 info 中沒有 previous_close
                            print(f"DEBUG: Only one day history and no previousClose from info for {full_ticker}. Cannot calculate change.", file=sys.stderr)
@@ -528,7 +531,7 @@ def get_market_index():
                       print(f"DEBUG: Falling back to history last close for {ticker_symbol}: {current_price}", file=sys.stderr)
                       if previous_close is None and len(hist) > 1:
                            previous_close = hist.iloc[-2]['Close']
-                           print(f"DEBUG: Falling back to history second last close for {ticker_symbol} as previousClose: {previous_price}", file=sys.stderr)
+                           print(f"DEBUG: Falling back to history second last close for {ticker_symbol} as previousClose: {previous_close}", file=sys.stderr)
                       elif previous_close is None and len(hist) == 1:
                            print(f"DEBUG: Only one day history and no previousClose from info for {ticker_symbol}. Cannot calculate change.", file=sys.stderr)
                            previous_close = None
