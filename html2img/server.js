@@ -18,12 +18,32 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 
 // ✅ RPi5 環境專用：舊版 headless 模式 + chromium 路徑
-// 依序嘗試不同的 chromium 執行檔路徑
-const CHROMIUM_PATH = fs.existsSync('/usr/bin/chromium')
-  ? '/usr/bin/chromium'
-  : '/usr/bin/chromium-browser';
+// 環境變數可自訂路徑，否則依序嘗試常見位置
+const candidatePaths = [
+  process.env.CHROMIUM_PATH,
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+];
+
+let CHROMIUM_PATH = null;
+for (const p of candidatePaths) {
+  if (p && fs.existsSync(p)) {
+    CHROMIUM_PATH = p;
+    break;
+  }
+}
+
+if (!CHROMIUM_PATH) {
+  console.error('❌ Chromium executable not found. Set CHROMIUM_PATH env.');
+}
 
 async function getBrowser() {
+  if (!CHROMIUM_PATH) {
+    throw new Error('Chromium executable not found');
+  }
+  console.log(`Launching Chromium at: ${CHROMIUM_PATH}`);
   return await puppeteer.launch({
     headless: 'old',
     executablePath: CHROMIUM_PATH,
@@ -133,7 +153,12 @@ app.post('/render', async (req, res) => {
 
   } catch (err) {
     console.error('🔥 HTML 轉圖錯誤:', err);
-    res.status(500).json({ error: "轉圖失敗：" + err.message });
+    const msg = err.message || '';
+    if (msg.includes('Chromium executable not found')) {
+      res.status(500).json({ error: '找不到 Chromium 執行檔，請確認環境或設置 CHROMIUM_PATH' });
+    } else {
+      res.status(500).json({ error: '轉圖失敗：' + msg });
+    }
   } finally {
     if (browser) {
       await browser.close();
