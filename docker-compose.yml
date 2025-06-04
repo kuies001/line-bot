@@ -10,7 +10,7 @@ services:
       - /home/kuies/docker_data/line_webhook:/app
       - ./line_webhook/logs:/app/logs
       - ./line_webhook/config:/app/config
-      - /home/kuies/html2img_output:/shared
+      - /home/kuies/docker_data/png:/shared
     environment:
       TZ: Asia/Taipei
       PORT: 5000
@@ -33,7 +33,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - /home/kuies/html2img_output:/shared
+      - /home/kuies/docker_data/png:/shared
     networks:
       - botnet
     user: "1000:1000"

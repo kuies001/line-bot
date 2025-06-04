@@ -5,7 +5,8 @@ import time
 import sys
 from datetime import datetime, timedelta
 
-CSV_PATH = "/home/kuies/html2img_output/twse_intraday.csv"  # 修正為當前目錄
+SHARED_DIR = os.getenv("SHARED_DIR", "/shared")
+CSV_PATH = os.path.join(SHARED_DIR, "twse_intraday.csv")
 
 def get_twse_tick():
     url = "https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0"
