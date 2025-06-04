@@ -1477,16 +1477,37 @@ def get_weather_bg(desc):
     else:
         return "linear-gradient(120deg,#fff9f9,#f0faff)"
 
+def get_weather_icon(desc: str) -> str:
+    """Return an emoji icon matching the weather description."""
+    desc = desc or ""
+    if "晴" in desc:
+        return "☀️"
+    elif "雨" in desc:
+        return "🌧"
+    elif "雪" in desc or "寒" in desc or "冷" in desc:
+        return "❄️"
+    elif "陰" in desc or "雲" in desc:
+        return "☁️"
+    else:
+        return "🌤"
+
+
 def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
+    """Generate an HTML snippet for the weather/AQI card."""
     bg = get_weather_bg(weather.get("desc"))
+    icon = get_weather_icon(weather.get("desc"))
     return f"""
     <html>
     <body style="margin:0;padding:0;">
-    <div id="screenshot-target" style="width:360px;height:300px;
+    <div id="screenshot-target" style="width:360px;height:300px;position:relative;
         background:{bg};
         padding:22px 28px;box-sizing:border-box;
-        font-family:'Noto Sans TC',sans-serif;
+        font-family:'Segoe UI','Noto Sans TC','Microsoft JhengHei',sans-serif;
         color:#333;border-radius:40px;box-shadow:0 2px 18px #eee;">
+
+      <div style="position:absolute;right:26px;bottom:20px;font-size:88px;opacity:0.15;pointer-events:none;">
+        {icon}
+      </div>
 
       <div style="font-size:22px;font-weight:bold;margin-bottom:14px;">
         🌤 {weather.get("location","地區")} 天氣與空氣品質
