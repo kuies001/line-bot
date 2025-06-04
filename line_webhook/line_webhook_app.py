@@ -233,11 +233,11 @@ def get_aqi_comment(aqi_value):
     except:
         return ""
     if aqi <= 50:
-        return "品質良好，適合學凱翔去戶外運動"
+        return "空氣良好，適合學凱翔去跑步"
     elif aqi <= 80:
         return "普通，跟廣廣一樣普通"
     elif aqi <= 100:
-        return "略差，外出建議戴套...我是說戴口罩"
+        return "略差，外出建議戴口罩"
     elif aqi <= 140:
         return "不佳，戴口罩或是少出門"
     else:
@@ -1482,7 +1482,7 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
     return f"""
     <html>
     <body style="margin:0;padding:0;">
-    <div id="screenshot-target" style="width:360px;height:330px;
+    <div id="screenshot-target" style="width:360px;height:300px;
         background:{bg};
         padding:22px 28px;box-sizing:border-box;
         font-family:'Noto Sans TC',sans-serif;
@@ -1495,11 +1495,10 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
       <div style="font-size:15.5px;line-height:1.7;">
         ☀️ 天氣：{weather.get("desc","N/A")}<br>
         🌡 溫度：{weather.get("min_temp","-")}°C ~ {weather.get("max_temp","-")}°C<br>
-        🌧 降雨率：{weather.get("pop","-")}%<br>
-        😌 舒適度：{weather.get("comfort","N/A")}<br><br>
+        🌧 降雨率：{weather.get("pop","-")}%<br><br>
 
         🍃 測站：{aqi.get("station","N/A")}<br>
-        📏 AQI 數值：{aqi.get("value","N/A")}<br>
+        📏 AQI：{aqi.get("value","N/A")}<br>
         ⚠️ 狀態：{aqi.get("status","N/A")}<br>
         <span style="font-size:12px;color:#888;">🗓 資料時間：{aqi.get("time","N/A")}</span>
       </div>
