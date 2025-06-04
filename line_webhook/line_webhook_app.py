@@ -23,7 +23,8 @@ from linebot.v3.messaging import (
     MessagingApi,
     TextMessage,
     ImageMessage,
-    ReplyMessageRequest
+    ReplyMessageRequest,
+    PushMessageRequest,
 )
 from linebot.v3.webhooks import (
     MessageEvent,
@@ -38,6 +39,7 @@ import pytz
 import time # 引入 time 模組，用於 sleep
 import random
 import threading # 引入 threading 模組，用於背景執行緒
+from typing import Optional
 import schedule # 引入 schedule 模組，用於定時任務
 import openai # 用于 OpenRouter
 import feedparser
@@ -1187,8 +1189,8 @@ def handle_message(event):
         weather_img_url, twse_img_url = None, None
         if is_business_day():
             try:
-                weather_data = {...}
-                aqi_data = {...}
+                weather_data = get_kaohsiung_weather_dict()
+                aqi_data = get_kaohsiung_aqi_dict()
                 html = build_weather_aqi_html(weather_data, aqi_data)
                 weather_img_url = render_html_to_image(html)
             except Exception as e:
@@ -1443,7 +1445,7 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
     return f"""
     <html>
     <body style="margin:0;padding:0;">
-    <div style="width:600px;height:315px;
+    <div id="screenshot-target" style="width:600px;height:315px;
         background:linear-gradient(to bottom,#fff9f9,#f0faff);
         padding:30px 40px;box-sizing:border-box;
         font-family:'Noto Sans TC',sans-serif;
@@ -1476,30 +1478,118 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
 import uuid
 
 def render_html_to_image(html_content: str) -> str:
+    """Render HTML via html2img container and return public image URL."""
     try:
         print("🧪 render_html_to_image(): 發送 HTML 給 html2img container...", file=sys.stderr)
         response = requests.post(
             "http://html2img:3000/render",
             data=html_content.encode("utf-8"),
             headers={"Content-Type": "text/html"},
-            timeout=15
+            timeout=15,
         )
         if response.status_code == 200:
-            # 用 UUID 命名避免覆蓋
-            filename = f"{uuid.uuid4().hex}.png"
-            file_path = f"/shared/{filename}"
-            with open(file_path, "wb") as f:
-                f.write(response.content)
-            print(f"✅ 圖片成功儲存：{file_path}", file=sys.stderr)
-            return f"https://rpi.kuies.tw/shared/{filename}"
+            # html2img returns JSON { filename: ... }
+            info = response.json()
+            filename = info.get("filename")
+            if not filename:
+                raise ValueError("Missing filename in html2img response")
+
+            src_path = f"/shared/{filename}"
+            dst_filename = f"{uuid.uuid4().hex}.png"
+            dst_path = f"/shared/{dst_filename}"
+            shutil.copy(src_path, dst_path)
+            print(f"✅ 圖片成功儲存：{dst_path}", file=sys.stderr)
+            return f"https://rpi.kuies.tw/shared/{dst_filename}"
         else:
-            print(f"❌ HTML2IMG 失敗：{response.status_code}, {response.text}", file=sys.stderr)
+            print(
+                f"❌ HTML2IMG 失敗：{response.status_code}, {response.text}",
+                file=sys.stderr,
+            )
             return "https://i.imgur.com/yT8VKpP.png"
     except Exception as e:
         print(f"❌ HTML2IMG 呼叫錯誤：{e}", file=sys.stderr)
         return "https://i.imgur.com/yT8VKpP.png"
 
-    
+
+def get_kaohsiung_weather_dict() -> dict:
+    """Return weather information for Kaohsiung as a dictionary."""
+    if not CWA_API_KEY:
+        raise ValueError("CWA_API_KEY not set")
+
+    url = (
+        "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
+        f"?Authorization={CWA_API_KEY}&locationName=高雄市"
+    )
+    res = requests.get(url, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+
+    loc = data.get("records", {}).get("location", [{}])[0]
+    elements = {e["elementName"]: e for e in loc.get("weatherElement", [])}
+
+    def elem_val(name: str) -> str:
+        return (
+            elements.get(name, {})
+            .get("time", [{}])[0]
+            .get("parameter", {})
+            .get("parameterName", "N/A")
+        )
+
+    return {
+        "location": "高雄市",
+        "desc": elem_val("Wx"),
+        "min_temp": elem_val("MinT"),
+        "max_temp": elem_val("MaxT"),
+        "pop": elem_val("PoP"),
+        "comfort": elem_val("CI"),
+    }
+
+
+def get_kaohsiung_aqi_dict() -> dict:
+    value, _, sitename = get_aqi_with_fallback()
+    return {
+        "station": sitename or "",
+        "value": value if value is not None else "N/A",
+        "status": get_aqi_comment(value),
+        "time": datetime.now(tz).strftime("%H:%M"),
+    }
+
+
+
+def send_extra_images(user_id: str, weather_img_url: Optional[str], twse_img_url: Optional[str]) -> None:
+    """Push extra images to LINE user if available."""
+    if not LINE_CHANNEL_ACCESS_TOKEN:
+        print("WARNING: LINE_CHANNEL_ACCESS_TOKEN not set. Cannot send extra images.", file=sys.stderr)
+        return
+
+    try:
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            messages = []
+            if weather_img_url:
+                messages.append(
+                    ImageMessage(
+                        original_content_url=weather_img_url,
+                        preview_image_url=weather_img_url,
+                    )
+                )
+            if twse_img_url:
+                messages.append(
+                    ImageMessage(
+                        original_content_url=twse_img_url,
+                        preview_image_url=twse_img_url,
+                    )
+                )
+            if messages:
+                req = PushMessageRequest(to=user_id, messages=messages)
+                line_bot_api.push_message_with_http_info(
+                    req,
+                    x_line_retry_key=str(uuid.uuid4())
+                )
+    except Exception as e:
+        print(f"DEBUG: Failed to push extra images: {e}", file=sys.stderr)
+
+
 # 新增環境變數：對話歷史檔路徑，可在 .env 裡設定
 def get_user_history_file(user_id: str) -> str:
     folder = "history"  # 相對於 config 同層的 history 資料夾
