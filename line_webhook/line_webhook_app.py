@@ -78,15 +78,40 @@ def load_system_prompt():
     with open(OVERRIDE_FILE, 'r', encoding='utf-8') as f:  
         return f.read()  
 
-def rollover_prompt():  
-    today = datetime.today().strftime('%Y-%m-%d')  
-    dst = OVERRIDE_FILE.replace('llm_config_old.json', f'llm_config_old_{today}.json')  
-    if os.path.exists(OVERRIDE_FILE):  
-        shutil.move(OVERRIDE_FILE, dst)  
-    shutil.copy(PROMPT_FILE, OVERRIDE_FILE)  
-    print(f'rollover prompt to {dst}')  
+def rollover_prompt():
+    today = datetime.today().strftime('%Y-%m-%d')
+    dst = OVERRIDE_FILE.replace('llm_config_old.json', f'llm_config_old_{today}.json')
+    if os.path.exists(OVERRIDE_FILE):
+        shutil.move(OVERRIDE_FILE, dst)
+    shutil.copy(PROMPT_FILE, OVERRIDE_FILE)
+    print(f'rollover prompt to {dst}')
 
-schedule.every().day.at("00:00").do(rollover_prompt)  
+def archive_html2img_output():
+    """Archive /shared directory into dated tar.gz and clean the folder."""
+    today = datetime.now(tz).strftime('%Y-%m-%d')
+    src_dir = '/shared'
+    dst_root = '/shared/archive'
+    os.makedirs(dst_root, exist_ok=True)
+    archive_base = os.path.join(dst_root, f'html2img_{today}')
+    try:
+        shutil.make_archive(archive_base, 'gztar', src_dir)
+        for name in os.listdir(src_dir):
+            if name == 'archive':
+                continue
+            path = os.path.join(src_dir, name)
+            try:
+                if os.path.isfile(path) or os.path.islink(path):
+                    os.remove(path)
+                else:
+                    shutil.rmtree(path)
+            except Exception as e:
+                print(f'WARN: Failed to remove {path}: {e}', file=sys.stderr)
+        print(f'archived html2img_output to {archive_base}.tar.gz', file=sys.stderr)
+    except Exception as e:
+        print(f'ERROR: archive_html2img_output failed: {e}', file=sys.stderr)
+
+schedule.every().day.at("00:00").do(rollover_prompt)
+schedule.every().day.at("00:00").do(archive_html2img_output)
 
 def run_scheduler():  
     while True:  
@@ -1170,9 +1195,7 @@ def handle_message(event):
 
         combined_report = (
             f"{market_simple}\n\n"
-            f"{tsmc_simple}\n\n"
-            f"{weather_line}\n\n"
-            f"{aqi_line}"
+            f"{tsmc_simple}"
         )
 
         # 主訊息一定先回
