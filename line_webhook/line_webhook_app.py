@@ -1441,21 +1441,35 @@ def fetch_google_news_rss(query: str, max_items: int = 3) -> list[str]:
     return results
     
 # =====天氣轉HTML模板=====
+def get_weather_bg(desc):
+    desc = desc or ""
+    if "晴" in desc:
+        return "linear-gradient(120deg,#fffbe9,#ffe089 70%,#ffd566)"
+    elif "雨" in desc:
+        return "linear-gradient(120deg,#e3f3fe 40%,#b3cdfc 70%,#8da7e8)"
+    elif "雪" in desc or "寒" in desc or "冷" in desc:
+        return "linear-gradient(120deg,#f0f4fa 40%,#c3d3e6 70%,#b4c7d6)"
+    elif "陰" in desc or "雲" in desc:
+        return "linear-gradient(120deg,#ececec 40%,#c8d6e2 70%,#cfcfd7)"
+    else:
+        return "linear-gradient(120deg,#fff9f9,#f0faff)"
+
 def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
+    bg = get_weather_bg(weather.get("desc"))
     return f"""
     <html>
     <body style="margin:0;padding:0;">
-    <div id="screenshot-target" style="width:600px;height:315px;
-        background:linear-gradient(to bottom,#fff9f9,#f0faff);
-        padding:30px 40px;box-sizing:border-box;
+    <div id="screenshot-target" style="width:360px;height:330px;
+        background:{bg};
+        padding:22px 28px;box-sizing:border-box;
         font-family:'Noto Sans TC',sans-serif;
-        color:#333;">
+        color:#333;border-radius:40px;box-shadow:0 2px 18px #eee;">
 
-      <div style="font-size:22px;font-weight:bold;margin-bottom:16px;">
+      <div style="font-size:22px;font-weight:bold;margin-bottom:14px;">
         🌤 {weather.get("location","地區")} 天氣與空氣品質
       </div>
 
-      <div style="font-size:16px;line-height:1.6;">
+      <div style="font-size:15.5px;line-height:1.7;">
         ☀️ 天氣：{weather.get("desc","N/A")}<br>
         🌡 溫度：{weather.get("min_temp","-")}°C ~ {weather.get("max_temp","-")}°C<br>
         🌧 降雨率：{weather.get("pop","-")}%<br>
@@ -1463,11 +1477,8 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
 
         🍃 測站：{aqi.get("station","N/A")}<br>
         📏 AQI 數值：{aqi.get("value","N/A")}<br>
-        ⚠️ 狀態：{aqi.get("status","N/A")}
-      </div>
-
-      <div style="font-size:12px;color:#888;text-align:right;margin-top:20px;">
-        🗓 資料時間：{aqi.get("time","N/A")}
+        ⚠️ 狀態：{aqi.get("status","N/A")}<br>
+        <span style="font-size:12px;color:#888;">🗓 資料時間：{aqi.get("time","N/A")}</span>
       </div>
     </div>
     </body>
