@@ -1271,6 +1271,11 @@ def handle_message(event):
                 search_results = []
             valid_results = [r for r in search_results if not r.startswith("❌")]
 
+        if len(valid_results) < 3:
+            print(f"DEBUG: Results too few ({len(valid_results)}), fetching Google News RSS...", file=sys.stderr)
+            news_results = fetch_google_news_rss(keyword, max_items=3 - len(valid_results))
+            valid_results.extend(news_results)
+
     # ✅ 回覆邏輯
         if len(valid_results) < 2:
             reply_text = f"❌ 找不到足夠的資訊來回覆：「{original_question}」。可能搜尋結果太少或資料不足。\n\n以下是擷取摘要（{len(valid_results)} 筆）：\n"
@@ -1411,6 +1416,26 @@ def search_google_with_content(query: str, max_links: int = 30, target_success: 
                 break
 
         browser.close()
+    return results
+
+def fetch_google_news_rss(query: str, max_items: int = 3) -> list[str]:
+    """Fetch Google News RSS articles for the query and return summaries."""
+    rss_url = (
+        "https://news.google.com/rss/search?q="
+        f"{urllib.parse.quote(query)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+    )
+    results = []
+    try:
+        feed = feedparser.parse(rss_url)
+        for entry in feed.entries[:max_items]:
+            url = entry.link
+            summary = fetch_firecrawl_content(url)[:800]
+            if len(summary.strip()) < 80 and hasattr(entry, "summary"):
+                summary = BeautifulSoup(entry.summary, "html.parser").get_text(strip=True)[:800]
+            if summary:
+                results.append(f"🔗 來源：{url}\n📄 內文擷取：\n{summary}")
+    except Exception as e:
+        print(f"WARNING: Google News RSS fetch failed: {e}", file=sys.stderr)
     return results
     
 # =====天氣轉HTML模板=====
