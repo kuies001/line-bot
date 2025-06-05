@@ -1539,13 +1539,13 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
         {icon}
       </div>
 
-      <div style="font-size:22px;font-weight:bold;margin-bottom:14px;">
+      <div style="font-size:24px;font-weight:bold;margin-bottom:14px;">
         🌤 {weather.get("location","地區")} 天氣與空氣品質
       </div>
 
-      <div style="font-size:15.5px;line-height:1.7;">
-        ☀️ 天氣：{weather.get("desc","N/A")}<br>
-        🌡 溫度：{weather.get("min_temp","-")}°C ~ {weather.get("max_temp","-")}°C<br>
+      <div style="font-size:17px;font-weight:bold;line-height:1.7;">
+        ☀️ {weather.get("desc","N/A")}<br>
+        🌡 {weather.get("min_temp","-")}°C ~ {weather.get("max_temp","-")}°C<br>
         🌧 降雨率：{weather.get("pop","-")}%<br><br>
 
         🍃 測站：{aqi.get("station","N/A")}<br>
