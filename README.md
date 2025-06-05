@@ -20,10 +20,11 @@
    OPENROUTER_API_KEY=your_openrouter_key
    CWA_API_KEY=your_cwa_key           # 氣象資料
    EPA_API_KEY=your_epa_key           # AQI 資料
-   LLM_PROMPT_FILE=/app/config/llm_config.json
    LLM_POLLING_INTERVAL_MINUTES=60
+   LLM_MAX_HISTORY=20
    AQICN_TOKEN=your_aqicn_token
    ```
+   系統預設提示詞位於 `line_webhook/config/global_system_prompt.txt`，可在 `user_prompt_map.json` 針對特定使用者覆寫。
 2. 執行 `docker-compose up -d` 啟動兩個服務。
 3. 將 LINE Webhook URL 指向 `http://<你的主機>:1111/callback` 即可開始使用。
 

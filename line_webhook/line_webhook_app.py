@@ -58,36 +58,21 @@ LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 AQICN_TOKEN = os.getenv("AQICN_TOKEN")
-LLM_PROMPT_FILE = os.getenv('LLM_PROMPT_FILE')
 
 # 定時輪詢的間隔 (分鐘)
-LLM_POLLING_INTERVAL_MINUTES = int(os.getenv('LLM_POLLING_INTERVAL_MINUTES', '60')) # 預設 30 分鐘
-
+LLM_POLLING_INTERVAL_MINUTES = int(os.getenv('LLM_POLLING_INTERVAL_MINUTES', '60'))
 
 # 新增氣象和 AQI 的 API Key
-CWA_API_KEY = os.getenv('CWA_API_KEY') # CWA 氣象 API 金鑰
-EPA_API_KEY = os.getenv('EPA_API_KEY') # EPA AQI API 金鑰
+CWA_API_KEY = os.getenv('CWA_API_KEY')  # CWA 氣象 API 金鑰
+EPA_API_KEY = os.getenv('EPA_API_KEY')  # EPA AQI API 金鑰
 
+# ====== 新版 LLM Prompt 設定 ======
+CONFIG_DIR = '/app/config'
+GLOBAL_PROMPT_FILE = os.path.join(CONFIG_DIR, 'global_system_prompt.txt')
+USER_PROMPT_MAP_FILE = os.path.join(CONFIG_DIR, 'user_prompt_map.json')
+HISTORY_FILE = os.getenv('HISTORY_FILE', os.path.join(CONFIG_DIR, 'history_default.json'))
+MAX_HISTORY = int(os.getenv('LLM_MAX_HISTORY', '20'))
 
-# LLM的prompt檔案
-load_dotenv()
-PROMPT_FILE  = os.getenv('LLM_PROMPT_FILE')      # /app/config/llm_config.json
-# 路徑存放每日覆寫的 Prompt 版本，和 daily_rollover.py 使用的環境變數名稱一致
-OVERRIDE_FILE = os.getenv('LLM_HISTORY_FILE', '/app/config/llm_config_old.json')
-# 對話歷史檔 (預設值會放在 /app/config/history_default.json)
-HISTORY_FILE = os.getenv('HISTORY_FILE', '/app/config/history_default.json')
-
-def load_system_prompt():  
-    with open(OVERRIDE_FILE, 'r', encoding='utf-8') as f:  
-        return f.read()  
-
-def rollover_prompt():
-    today = datetime.today().strftime('%Y-%m-%d')
-    dst = OVERRIDE_FILE.replace('llm_config_old.json', f'llm_config_old_{today}.json')
-    if os.path.exists(OVERRIDE_FILE):
-        shutil.move(OVERRIDE_FILE, dst)
-    shutil.copy(PROMPT_FILE, OVERRIDE_FILE)
-    print(f'rollover prompt to {dst}')
 
 def archive_html2img_output():
     """Archive SHARED_DIR into dated tar.gz and clean the folder."""
@@ -113,7 +98,6 @@ def archive_html2img_output():
     except Exception as e:
         print(f'ERROR: archive_html2img_output failed: {e}', file=sys.stderr)
 
-schedule.every().day.at("00:00").do(rollover_prompt)
 schedule.every().day.at("00:00").do(archive_html2img_output)
 
 def run_scheduler():  
@@ -126,7 +110,7 @@ threading.Thread(target=run_scheduler, daemon=True).start()
 # ====== DEBUG 打印金鑰狀態 ======
 print(f"DEBUG: Loaded LINE_CHANNEL_SECRET: '{LINE_CHANNEL_SECRET[:8] if LINE_CHANNEL_SECRET else 'None'}'...", file=sys.stderr)
 print(f"DEBUG: Loaded OPENROUTER_API_KEY: '{OPENROUTER_API_KEY[:8] if OPENROUTER_API_KEY else 'None'}'...", file=sys.stderr)
-print(f"DEBUG: LLM_PROMPT_FILE: '{LLM_PROMPT_FILE}'...", file=sys.stderr)
+print(f"DEBUG: GLOBAL_PROMPT_FILE: '{GLOBAL_PROMPT_FILE}'...", file=sys.stderr)
 print(f"DEBUG: LLM_POLLING_INTERVAL_MINUTES: {LLM_POLLING_INTERVAL_MINUTES} minutes...", file=sys.stderr)
 if CWA_API_KEY:
     print(f"DEBUG: Loaded CWA_API_KEY (exists)", file=sys.stderr)
@@ -255,55 +239,24 @@ def load_llm_prompt():
     # =================================
 
     global LLM_SYSTEM_PROMPT, last_modified_time
-    if not LLM_PROMPT_FILE:
-        # 如果沒有設定檔案路徑，則使用預設 Prompt，並不再嘗試載入
-        if LLM_SYSTEM_PROMPT is None: # 只有第一次未設定時才打印警告
-             print("WARNING: LLM_PROMPT_FILE environment variable not set. Using default LLM system prompt.", file=sys.stderr)
-             LLM_SYSTEM_PROMPT = "你是一個有禮貌的 LINE 聊天機器人，請使用繁體中文回覆。"
-        return # 不進行檔案操作
-
-    if not os.path.exists(LLM_PROMPT_FILE):
-         # 如果檔案不存在，只有第一次或檔案消失時才打印警告
-         if LLM_SYSTEM_PROMPT is None or last_modified_time is not None: # 如果 Prompt 是 None 或之前成功載入過 (檔案消失)
-              print(f"WARNING: LLM prompt file not found at {LLM_PROMPT_FILE}. Using default LLM system prompt or keeping old one.", file=sys.stderr)
-              # 檔案不存在，如果之前成功載入過，則保留舊的；如果沒有，則使用預設。
-              if LLM_SYSTEM_PROMPT is None:
-                   LLM_SYSTEM_PROMPT = "你是一個有禮貌的 LINE 聊天機器人，請使用繁體中文回覆。"
-              last_modified_time = None # Reset modified time if file disappears
-         return # 不進行檔案操作
+    if not os.path.exists(GLOBAL_PROMPT_FILE):
+        if LLM_SYSTEM_PROMPT is None:
+            print(f"WARNING: Global prompt file not found at {GLOBAL_PROMPT_FILE}. Using default prompt.", file=sys.stderr)
+            LLM_SYSTEM_PROMPT = "你是一個有禮貌的 LINE 聊天機器人，請使用繁體中文回覆。"
+        last_modified_time = None
+        return
 
     try:
-        current_modified_time = os.path.getmtime(LLM_PROMPT_FILE)
-        # 只有當檔案修改時間比上次載入時新，或者這是第一次載入時才重新讀取
+        current_modified_time = os.path.getmtime(GLOBAL_PROMPT_FILE)
         if last_modified_time is None or current_modified_time > last_modified_time:
-            print(f"INFO: Loading LLM system prompt from {LLM_PROMPT_FILE} (Last modified: {datetime.fromtimestamp(current_modified_time).strftime('%Y-%m-%d %H:%M:%S')})...", file=sys.stderr) # 格式化時間打印
-            with open(LLM_PROMPT_FILE, 'r', encoding='utf-8') as f:
-                prompt_config = json.load(f)
-                new_prompt = prompt_config.get("system_prompt")
-
-                if new_prompt:
-                    LLM_SYSTEM_PROMPT = new_prompt
-                    last_modified_time = current_modified_time # 更新修改時間
-                    print(f"INFO: Successfully loaded new LLM system prompt (length: {len(LLM_SYSTEM_PROMPT)}).", file=sys.stderr)
-                else:
-                    print(f"WARNING: 'system_prompt' key not found or empty in {LLM_PROMPT_FILE}. Keeping old prompt or using default.", file=sys.stderr)
-                    # 如果檔案存在但內容不正確，如果之前沒 Prompt 則使用預設
-                    if LLM_SYSTEM_PROMPT is None:
-                         LLM_SYSTEM_PROMPT = "你是一個有禮貌的 LINE 聊天機器人，請使用繁體中文回覆。"
-                    # 不更新 last_modified_time，這樣下次輪詢時會再次嘗試載入 (直到檔案內容變正確)
-
-    except json.JSONDecodeError as e:
-        print(f"ERROR: Failed to parse JSON from {LLM_PROMPT_FILE}: {e}. Keeping old prompt or using default.", file=sys.stderr)
-        # 解析失敗，如果之前沒 Prompt 則使用預設
-        if LLM_SYSTEM_PROMPT is None:
-             LLM_SYSTEM_PROMPT = "你是一個有禮貌的 LINE 聊天機器人，請使用繁體中文回覆。"
-        # 不更新 last_modified_time，這樣下次輪詢時會再次嘗試載入 (直到檔案內容變正確)
+            with open(GLOBAL_PROMPT_FILE, 'r', encoding='utf-8') as f:
+                LLM_SYSTEM_PROMPT = f.read().strip()
+            last_modified_time = current_modified_time
+            print(f"INFO: Loaded global prompt (length: {len(LLM_SYSTEM_PROMPT)}).", file=sys.stderr)
     except Exception as e:
-        print(f"ERROR: Unexpected error reading LLM prompt file {LLM_PROMPT_FILE}: {e}. Keeping old prompt or using default.", file=sys.stderr)
-        # 其他讀取錯誤，如果之前沒 Prompt 則使用預設
+        print(f"ERROR: Failed to read global prompt file {GLOBAL_PROMPT_FILE}: {e}", file=sys.stderr)
         if LLM_SYSTEM_PROMPT is None:
-             LLM_SYSTEM_PROMPT = "你是一個有禮貌的 LINE 聊天機器人，請使用繁體中文回覆。"
-        # 不更新 last_modified_time
+            LLM_SYSTEM_PROMPT = "你是一個有禮貌的 LINE 聊天機器人，請使用繁體中文回覆。"
 
 
 def run_scheduler():
@@ -924,12 +877,11 @@ def gen_twse_intraday_chart(out_path=None):
     return out_path
 
 # 使用自訂prompt
-USER_PROMPT_MAP_FILE = "/app/config/user_prompt_map.json"
 
 def get_combined_system_prompt(user_id: str) -> str:
     try:
         # 全域 prompt
-        with open('/app/config/global_system_prompt.txt', 'r', encoding='utf-8') as f:
+        with open(GLOBAL_PROMPT_FILE, 'r', encoding='utf-8') as f:
             global_prompt = f.read().strip()
 
         # 個人差異 prompt
@@ -985,9 +937,7 @@ def get_openrouter_response(prompt: str, config: dict = None) -> str:
         return "抱歉，聊天服務目前無法使用 (API 設定問題)。"
 
     try:
-        with open(PROMPT_FILE, 'r', encoding='utf-8') as f:
-            base_config = json.load(f)
-            max_history = int(base_config.get("max_history", 20))
+        max_history = MAX_HISTORY
 
         if config and "user_id" in config:
             system_prompt = get_combined_system_prompt(config["user_id"])
@@ -1166,17 +1116,13 @@ print("DEBUG: Executing module-level code to load prompt and start scheduler..."
 load_llm_prompt()
 
 # 設定定時任務，每隔指定分鐘執行一次載入函式
-if LLM_PROMPT_FILE: # 只有在設定了檔案路徑時才啟動定時任務
-    print(f"DEBUG: Scheduling prompt reload every {LLM_POLLING_INTERVAL_MINUTES} minutes.", file=sys.stderr) # 新增 debug 打印
-    schedule.every(LLM_POLLING_INTERVAL_MINUTES).minutes.do(load_llm_prompt)
+print(f"DEBUG: Scheduling prompt reload every {LLM_POLLING_INTERVAL_MINUTES} minutes.", file=sys.stderr)
+schedule.every(LLM_POLLING_INTERVAL_MINUTES).minutes.do(load_llm_prompt)
 
-    # 啟動背景執行緒來運行排程器
-    # 設置為 daemon=True 確保主程式結束時執行緒也會自動結束
-    scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
-    scheduler_thread.start()
-    print("INFO: LLM prompt file auto-reload scheduler thread started.", file=sys.stderr)
-else:
-    print("INFO: LLM_PROMPT_FILE not set, auto-reload scheduler will not start.", file=sys.stderr)
+# 啟動背景執行緒來運行排程器
+scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+scheduler_thread.start()
+print("INFO: LLM prompt file auto-reload scheduler thread started.", file=sys.stderr)
 
 print("DEBUG: Finished module-level code.", file=sys.stderr) # 新增 debug 打印
 
@@ -1674,11 +1620,6 @@ def send_extra_images(user_id: str, weather_img_url: Optional[str], twse_img_url
 
 
 # 新增環境變數：對話歷史檔路徑，可在 .env 裡設定
-def get_user_history_file(user_id: str) -> str:
-    folder = "history"  # 相對於 config 同層的 history 資料夾
-    os.makedirs(folder, exist_ok=True)
-    return os.path.join(folder, f"history_{user_id}.json")
-
 # 對應 ID → 使用者名稱
 USER_NAME_MAP = {
     "Ue61d9b3a2353792e6921607c2f671c96": "凱翔",
