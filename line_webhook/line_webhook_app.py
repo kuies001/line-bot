@@ -60,7 +60,7 @@ OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 AQICN_TOKEN = os.getenv("AQICN_TOKEN")
 
 # 定時輪詢的間隔 (分鐘)
-LLM_POLLING_INTERVAL_MINUTES = int(os.getenv('LLM_POLLING_INTERVAL_MINUTES', '60'))
+LLM_POLLING_INTERVAL_MINUTES = get_int_env('LLM_POLLING_INTERVAL_MINUTES', 60)
 
 # 新增氣象和 AQI 的 API Key
 CWA_API_KEY = os.getenv('CWA_API_KEY')  # CWA 氣象 API 金鑰
@@ -71,7 +71,17 @@ CONFIG_DIR = '/app/config'
 GLOBAL_PROMPT_FILE = os.path.join(CONFIG_DIR, 'global_system_prompt.txt')
 USER_PROMPT_MAP_FILE = os.path.join(CONFIG_DIR, 'user_prompt_map.json')
 HISTORY_FILE = os.getenv('HISTORY_FILE', os.path.join(CONFIG_DIR, 'history_default.json'))
-MAX_HISTORY = int(os.getenv('LLM_MAX_HISTORY', '20'))
+
+def get_int_env(var_name: str, default: int) -> int:
+    """Safely parse integer environment variables."""
+    value = os.getenv(var_name, '')
+    try:
+        return int(value) if value else default
+    except ValueError:
+        print(f"WARNING: Invalid value for {var_name}: '{value}', using {default}.", file=sys.stderr)
+        return default
+
+MAX_HISTORY = get_int_env('LLM_MAX_HISTORY', 20)
 
 
 def archive_html2img_output():
