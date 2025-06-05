@@ -13,21 +13,32 @@ import numpy as np
 from scipy.interpolate import make_interp_spline
 
 SHARED_DIR = os.getenv("SHARED_DIR", "/shared")
-CSV_PATH = os.path.join(SHARED_DIR, "twse_intraday.csv")
 OUT_PATH = os.path.join(SHARED_DIR, "twse_intraday.png")
 
-df = pd.read_csv(CSV_PATH)
+today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+csv_path = os.path.join(SHARED_DIR, f"twse_intraday_{today_str}.csv")
 
-# 只保留今天的資料
-today = datetime.datetime.now().strftime("%Y-%m-%d")
-df = df[df["datetime"].str.startswith(today)]
+if not os.path.exists(csv_path):
+    candidates = [
+        f
+        for f in os.listdir(SHARED_DIR)
+        if f.startswith("twse_intraday_") and f.endswith(".csv")
+    ]
+    if not candidates:
+        raise FileNotFoundError("沒有任何分時資料檔案")
+    latest = max(candidates, key=lambda f: os.path.getmtime(os.path.join(SHARED_DIR, f)))
+    csv_path = os.path.join(SHARED_DIR, latest)
+
+df = pd.read_csv(csv_path)
+
+file_date = pd.to_datetime(df["datetime"].iloc[0]).strftime("%Y-%m-%d")
 
 # 轉成datetime格式
 df["datetime"] = pd.to_datetime(df["datetime"])
 
 # ==== 重點：建立完整X軸（09:00~13:30，每分鐘一格）====
-start_time = pd.to_datetime(f"{today} 09:00")
-end_time = pd.to_datetime(f"{today} 13:30")
+start_time = pd.to_datetime(f"{file_date} 09:00")
+end_time = pd.to_datetime(f"{file_date} 13:30")
 full_time_index = pd.date_range(start=start_time, end=end_time, freq="1T")
 df = df.set_index("datetime")
 df = df[~df.index.duplicated(keep='first')]
@@ -121,12 +132,12 @@ for seg_time, seg_y in segments:
 
 # 指定你要的時間tick
 xlabels = [
-    pd.to_datetime(f"{today} 09:00"),
-    pd.to_datetime(f"{today} 10:00"),
-    pd.to_datetime(f"{today} 11:00"),
-    pd.to_datetime(f"{today} 12:00"),
-    pd.to_datetime(f"{today} 13:00"),
-    pd.to_datetime(f"{today} 13:30")
+    pd.to_datetime(f"{file_date} 09:00"),
+    pd.to_datetime(f"{file_date} 10:00"),
+    pd.to_datetime(f"{file_date} 11:00"),
+    pd.to_datetime(f"{file_date} 12:00"),
+    pd.to_datetime(f"{file_date} 13:00"),
+    pd.to_datetime(f"{file_date} 13:30")
 ]
 ax.set_xticks(xlabels)
 ax.set_xticklabels([dt.strftime("%H:%M") for dt in xlabels], fontproperties=myfont)
