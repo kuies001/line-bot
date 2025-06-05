@@ -1,5 +1,6 @@
 __pycache__/
 config/
+png/
 venv/
 *.pyc
 *.pyo

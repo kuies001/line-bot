@@ -1203,18 +1203,10 @@ def handle_message(event):
             f"{tsmc_simple}"
         )
 
-        # 主訊息一定先回
-        with ApiClient(configuration) as api_client:
-            line_bot_api = MessagingApi(api_client)
-            line_bot_api.reply_message_with_http_info(
-                ReplyMessageRequest(
-                    reply_token=reply_token,
-                    messages=[TextMessage(text=combined_report)]
-                )
-            )
-
-        # 圖片獨立try
         weather_img_url, twse_img_url = None, None
+        messages = [TextMessage(text=combined_report)]
+
+        # 產圖流程直接在主 thread 等待
         if is_business_day():
             try:
                 weather_data = get_kaohsiung_weather_dict()
@@ -1232,22 +1224,44 @@ def handle_message(event):
             except Exception as e:
                 print(f"產分時圖掛掉：{e}", file=sys.stderr)
 
-            # 用threading推圖片
-            threading.Thread(target=send_extra_images, args=(source_user_id, weather_img_url, twse_img_url)).start()
+            # 只要圖有成功，直接組進 reply_message
+            if weather_img_url:
+                messages.append(ImageMessage(
+                    original_content_url=weather_img_url,
+                    preview_image_url=weather_img_url
+                ))
+            if twse_img_url:
+                messages.append(ImageMessage(
+                    original_content_url=twse_img_url,
+                    preview_image_url=twse_img_url
+                ))
+
+        # 不用 threading，不用 push_message，直接 reply_message
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=messages
+                )
+            )
         return "OK"
 
         # 先產圖
         img_path = gen_twse_intraday_chart()
         img_url = "https://rpi.kuies.tw/static/twse_intraday.png"
 
-        messages = [
-            TextMessage(text=combined_report),
-            ImageMessage(
-                original_content_url=img_url,
-                preview_image_url=img_url
-            )
-        ]
-
+        messages = [TextMessage(text=combined_report)]
+        if weather_img_url:
+            messages.append(ImageMessage(
+                original_content_url=weather_img_url,
+                preview_image_url=weather_img_url
+            ))
+        if twse_img_url:
+            messages.append(ImageMessage(
+                original_content_url=twse_img_url,
+                preview_image_url=twse_img_url
+            ))
 
         with ApiClient(configuration) as api_client:
             line_bot_api = MessagingApi(api_client)
