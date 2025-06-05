@@ -226,6 +226,40 @@ def get_temp_emoji(max_temp: int) -> str:
         return "🥵"
     else:
         return "🔥"
+
+def get_pop_color(pop: int) -> str:
+    """Return a color string based on rain probability."""
+    try:
+        p = int(pop)
+    except Exception:
+        return "#333"
+    if p < 20:
+        return "#4a90e2"  # blue
+    elif p < 50:
+        return "#50e3c2"  # teal
+    elif p < 80:
+        return "#f5a623"  # orange
+    else:
+        return "#d0021b"  # red
+
+def get_aqi_color(aqi: int) -> str:
+    """Return a color string based on AQI value."""
+    try:
+        v = int(aqi)
+    except Exception:
+        return "#333"
+    if v <= 50:
+        return "#2ecc71"  # green
+    elif v <= 100:
+        return "#f1c40f"  # yellow
+    elif v <= 150:
+        return "#e67e22"  # orange
+    elif v <= 200:
+        return "#e74c3c"  # red
+    elif v <= 300:
+        return "#8e44ad"  # purple
+    else:
+        return "#7e0023"  # maroon
         
 # ===== AQI判斷函數 =====
 def get_aqi_comment(aqi_value):
@@ -1526,6 +1560,10 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
     """Generate an HTML snippet for the weather/AQI card."""
     bg = get_weather_bg(weather.get("desc"))
     icon = get_weather_icon(weather.get("desc"))
+    pop = weather.get("pop", "-")
+    aqi_value = aqi.get("value", "N/A")
+    pop_color = get_pop_color(pop)
+    aqi_color = get_aqi_color(aqi_value)
     return f"""
     <html>
     <body style="margin:0;padding:0;">
@@ -1546,10 +1584,10 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
       <div style="font-size:17px;font-weight:bold;line-height:1.7;">
         ☀️ {weather.get("desc","N/A")}<br>
         🌡 {weather.get("min_temp","-")}°C ~ {weather.get("max_temp","-")}°C<br>
-        🌧 降雨率：{weather.get("pop","-")}%<br><br>
+        🌧 降雨率：<span style="color:{pop_color};">{pop}%</span><br><br>
 
         🍃 測站：{aqi.get("station","N/A")}<br>
-        📏 AQI：{aqi.get("value","N/A")}<br>
+        📏 AQI：<span style="color:{aqi_color};">{aqi_value}</span><br>
         ⚠️ 狀態：{aqi.get("status","N/A")}<br>
         <span style="font-size:12px;color:#888;">🗓 資料時間：{aqi.get("time","N/A")}</span>
       </div>
