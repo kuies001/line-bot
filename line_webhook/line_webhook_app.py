@@ -817,17 +817,25 @@ def get_moea_aqi_value(county="高雄市", site=None):
         if site:
             sites = [r for r in sites if r["sitename"] == site]
         if not sites:
-            return None, None, None
-        # 預設抓第一個測站
-        aqi_str = sites[0].get("aqi", None)
-        sitename = sites[0].get("sitename", "")
+            return None, None, None, None
+
+        rec = sites[0]
+        aqi_str = rec.get("aqi", None)
+        sitename = rec.get("sitename", "")
+        publish_time = (
+            rec.get("publishtime")
+            or rec.get("PublishTime")
+            or rec.get("importdate")
+            or rec.get("ImportDate")
+            or ""
+        )
         try:
             aqi_val = int(aqi_str)
-            return aqi_val, "MOENV", sitename
-        except:
-            return None, None, None
-    except Exception as e:
-        return None, None, None
+            return aqi_val, "MOENV", sitename, publish_time
+        except Exception:
+            return None, None, None, None
+    except Exception:
+        return None, None, None, None
 
 def get_kaohsiung_aqi_aqicn():
     print(f"AQICN token 測試: {AQICN_TOKEN}", file=sys.stderr)
@@ -839,22 +847,25 @@ def get_kaohsiung_aqi_aqicn():
         data = r.json()
         if "data" in data and "aqi" in data["data"]:
             value = data["data"]["aqi"]
+            time_str = ""
+            if isinstance(data["data"].get("time"), dict):
+                time_str = data["data"]["time"].get("s") or data["data"]["time"].get("iso") or ""
             if isinstance(value, int):
-                return value, "AQICN"
+                return value, "AQICN", time_str
     except Exception as e:
         print(f"AQICN Exception: {e}", file=sys.stderr)
-    return None, None
+    return None, None, None
 
 def get_aqi_with_fallback():
-    value, src, sitename = get_moea_aqi_value()
+    value, src, sitename, time_str = get_moea_aqi_value()
     if value:
-        return value, src, sitename
+        return value, src, sitename, time_str
 
-    value, src = get_kaohsiung_aqi_aqicn()
+    value, src, time_str = get_kaohsiung_aqi_aqicn()
     if value:
-        return value, f"AQICN國際源", "kaohsiung"
+        return value, f"AQICN國際源", "kaohsiung", time_str
 
-    return None, None, None
+    return None, None, None, None
 
     # 1. 抓台股大盤K線
 import matplotlib
@@ -1188,7 +1199,7 @@ def handle_message(event):
         tsmc_report = get_stock_price("2330", "台積電")
         weather_raw = get_kaohsiung_weather()
         weather_line = weather_raw.strip()
-        aqi_value, aqi_source, aqi_sitename = get_aqi_with_fallback()
+        aqi_value, aqi_source, aqi_sitename, _ = get_aqi_with_fallback()
         aqi_emoji = get_aqi_emoji(aqi_value) if aqi_value else "❓"
         aqi_comment = get_aqi_comment(aqi_value)
         aqi_line = f"🍃 AQI：{aqi_emoji} {to_emoji_number(aqi_value) if aqi_value else '❓'}（{aqi_sitename if aqi_sitename else ''}）\n{aqi_comment}"
@@ -1618,12 +1629,12 @@ def get_kaohsiung_weather_dict() -> dict:
 
 
 def get_kaohsiung_aqi_dict() -> dict:
-    value, _, sitename = get_aqi_with_fallback()
+    value, _, sitename, time_str = get_aqi_with_fallback()
     return {
         "station": sitename or "",
         "value": value if value is not None else "N/A",
         "status": get_aqi_comment(value),
-        "time": datetime.now(tz).strftime("%H:%M"),
+        "time": time_str or datetime.now(tz).strftime("%H:%M"),
     }
 
 
