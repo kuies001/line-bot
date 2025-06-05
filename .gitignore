@@ -1,5 +1,7 @@
 __pycache__/
 config/
+!line_webhook/config/
+!line_webhook/config/**
 png/
 venv/
 *.pyc
