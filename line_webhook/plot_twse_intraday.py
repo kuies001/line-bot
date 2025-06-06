@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.ticker as mticker
 import datetime
 import os
+import sys
 
 from matplotlib.font_manager import FontProperties
 
@@ -20,12 +21,12 @@ csv_path = os.path.join(SHARED_DIR, f"twse_intraday_{today_str}.csv")
 
 if not os.path.exists(csv_path):
     candidates = [
-        f
-        for f in os.listdir(SHARED_DIR)
+        f for f in os.listdir(SHARED_DIR)
         if f.startswith("twse_intraday_") and f.endswith(".csv")
     ]
     if not candidates:
-        raise FileNotFoundError("沒有任何分時資料檔案")
+        print("No intraday csv found, skip chart generation")
+        sys.exit(0)
     latest = max(candidates, key=lambda f: os.path.getmtime(os.path.join(SHARED_DIR, f)))
     csv_path = os.path.join(SHARED_DIR, latest)
 
