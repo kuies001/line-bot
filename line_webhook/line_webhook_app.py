@@ -1557,44 +1557,80 @@ def get_weather_icon(desc: str) -> str:
 
 
 def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
-    """Generate an HTML snippet for the weather/AQI card."""
     bg = get_weather_bg(weather.get("desc"))
     icon = get_weather_icon(weather.get("desc"))
     pop = weather.get("pop", "-")
     aqi_value = aqi.get("value", "N/A")
-    pop_color = get_pop_color(pop)
+    pop_color = "#2692e6"
     aqi_color = get_aqi_color(aqi_value)
-    return f"""
+    aqi_emoji = get_aqi_emoji(aqi_value if aqi_value != "N/A" else 0)
+    aqi_status = aqi.get("status", "N/A")
+    min_temp = weather.get("min_temp", "-")
+    max_temp = weather.get("max_temp", "-")
+    desc = weather.get("desc", "N/A")
+    location = weather.get("location", "地區")
+    station = aqi.get("station", "")
+    time_str = aqi.get("time", "")
+
+    # 正規化更新時間：抓到 14:00
+    import re
+    display_time = ""
+    # 嘗試抓 HH:MM (可接受14:00:00 也可以14:00)
+    match = re.search(r"(\d{2}:\d{2})", time_str)
+    if match:
+        display_time = match.group(1)
+    else:
+        display_time = time_str[-5:] if ":" in time_str else time_str
+
+    return f'''
     <html>
+    <body style="margin:0;padding:0;">
     <body style="margin:0;padding:0;">
     <div id="screenshot-target" style="width:360px;height:300px;position:relative;
         background:{bg};
-        padding:22px 28px;box-sizing:border-box;
+        border-radius:36px;box-shadow:0 4px 24px #eee;
         font-family:'Segoe UI','Noto Sans TC','Microsoft JhengHei',sans-serif;
-        color:#333;border-radius:40px;box-shadow:0 2px 18px #eee;">
-
-      <div style="position:absolute;right:26px;bottom:20px;font-size:88px;opacity:0.15;pointer-events:none;">
-        {icon}
+        color:#222;overflow:hidden;">
+      <!-- 天氣 ICON + 溫度(大)（新版：flex 水平置中+基線對齊） -->
+      <div style="position:absolute;top:60px;left:0;right:0;display:flex;justify-content:center;align-items:center;">
+        <span style="font-size:64px;display:inline-block;vertical-align:middle;line-height:1;">{icon}</span>
+        <span style="font-size:48px;font-weight:bold;margin-left:14px;vertical-align:middle;line-height:1;">{min_temp}~{max_temp}°C</span>
+      </div>
+      <!-- 天氣描述 + AQI 狀態（同字體） -->
+      <div style="position:absolute;top:126px;width:100%;text-align:center;">
+        <div style="font-size:17px;color:#444;">{desc}</div>
+        <div style="font-size:17px;color:#9966cc;margin-top:2px;">{aqi_status}</div>
+      </div>
+      <!-- 地區名稱 -->
+      <div style="position:absolute;top:18px;left:0;right:0;text-align:center;font-size:17px;font-weight:bold;letter-spacing:2px;color:#888;">
+        {location} 天氣預報
       </div>
 
-      <div style="font-size:24px;font-weight:bold;margin-bottom:14px;">
-        🌤 {weather.get("location","地區")} 天氣與空氣品質
+      <!-- 降雨率 + AQI 列（往上拉到180px） -->
+      <div style="position:absolute;left:0;right:0;bottom:64px;display:flex;flex-direction:row;justify-content:space-between;align-items:center;padding:0 26px;">
+        <!-- 左：降雨 -->
+        <div style="font-size:17px;">
+          <span style="font-size:23px;">🌧</span>
+          <span style="color:{pop_color};font-weight:bold;margin-left:4px;">{pop}%</span>
+          <span style="font-size:12px;color:#444;margin-left:4px;">降雨機率</span>
+        </div>
+        <!-- 右：AQI -->
+        <div style="min-width:85px;padding:7px 10px 6px 8px;
+                  background:{aqi_color};color:#fff;font-size:16px;border-radius:15px;box-shadow:0 2px 8px #ddd;
+                  display:flex;align-items:center;justify-content:right;">
+          <span style="font-size:22px;margin-right:4px;">{aqi_emoji}</span>
+          <span style="font-size:18px;font-weight:bold;">AQI {aqi_value}</span>
+        </div>
       </div>
-
-      <div style="font-size:17px;font-weight:bold;line-height:1.7;">
-        ☀️ {weather.get("desc","N/A")}<br>
-        🌡 {weather.get("min_temp","-")}°C ~ {weather.get("max_temp","-")}°C<br>
-        🌧 降雨率：<span style="color:{pop_color};">{pop}%</span><br><br>
-
-        🍃 測站：{aqi.get("station","N/A")}<br>
-        📏 AQI：<span style="color:{aqi_color};">{aqi_value}</span><br>
-        ⚠️ 狀態：{aqi.get("status","N/A")}<br>
-        <span style="font-size:12px;color:#888;">🗓 資料時間：{aqi.get("time","N/A")}</span>
+      <!-- 最下排測站、時間（兩行，字體更小，左對齊） -->
+      <div style="position:absolute;left:18px;right:18px;bottom:14px;font-size:10.5px;color:#333;text-align:left;opacity:0.85;line-height:1.3;">
+        測站：{station}<br>
+        更新時間：{display_time}
       </div>
     </div>
     </body>
     </html>
-    """
+    '''
     return html
 
 import uuid
