@@ -709,6 +709,22 @@ def is_business_day(dt=None):
         # 如果查不到就退而求其次，平日都當作開市
         return True
 
+
+def find_latest_intraday_csv() -> Optional[str]:
+    """Return the latest intraday CSV path if any."""
+    today_str = datetime.now(tz).strftime('%Y-%m-%d')
+    path = os.path.join(SHARED_DIR, f"twse_intraday_{today_str}.csv")
+    if os.path.exists(path):
+        return path
+    candidates = [
+        f for f in os.listdir(SHARED_DIR)
+        if f.startswith("twse_intraday_") and f.endswith(".csv")
+    ]
+    if not candidates:
+        return None
+    latest = max(candidates, key=lambda f: os.path.getmtime(os.path.join(SHARED_DIR, f)))
+    return os.path.join(SHARED_DIR, latest)
+
 # ====== 高雄市天氣查詢函數 ======
 def get_kaohsiung_weather():
     """
@@ -1260,14 +1276,18 @@ def handle_message(event):
                 weather_img_url = render_html_to_image(html)
             except Exception as e:
                 print(f"產天氣圖卡掛掉：{e}", file=sys.stderr)
-            try:
-                subprocess.run(
-                    ["/usr/local/bin/python3", "/app/plot_twse_intraday.py"],
-                    check=True,
-                )
-                twse_img_url = f"https://rpi.kuies.tw/static/twse_intraday.png?nocache={random.randint(1000,9999)}"
-            except Exception as e:
-                print(f"產分時圖掛掉：{e}", file=sys.stderr)
+            csv_path = find_latest_intraday_csv()
+            if csv_path:
+                try:
+                    subprocess.run(
+                        ["/usr/local/bin/python3", "/app/plot_twse_intraday.py"],
+                        check=True,
+                    )
+                    twse_img_url = f"https://rpi.kuies.tw/static/twse_intraday.png?nocache={random.randint(1000,9999)}"
+                except Exception as e:
+                    print(f"產分時圖掛掉：{e}", file=sys.stderr)
+            else:
+                print("No intraday csv found, skip twse chart", file=sys.stderr)
 
             # 只要圖有成功，直接組進 reply_message
             if weather_img_url:
@@ -1586,15 +1606,15 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
     <html>
     <head>
     <style>
-    @font-face {
+    @font-face {{
       font-family: 'PopGothic';
       src: url("file:///usr/share/fonts/fft/PopGothicCjkTc-Regular.ttf");
       font-weight: normal;
       font-style: normal;
-    }
-    body, #screenshot-target {
+    }}
+    body, #screenshot-target {{
       font-family: 'PopGothic', 'Segoe UI', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
-    }
+    }}
     </style>
     </head>
     <body style="margin:0;padding:0;">
