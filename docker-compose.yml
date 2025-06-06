@@ -34,7 +34,7 @@ services:
       - "3000:3000"
     volumes:
       - /home/kuies/docker_data/png:/shared
-      - ./ttf:/ttf
+      - /home/kuies/docker_data/ttf:/usr/share/fonts/fft
     networks:
       - botnet
     user: "1000:1000"

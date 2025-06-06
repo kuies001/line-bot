@@ -1585,17 +1585,17 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
     return f'''
     <html>
     <head>
-      <style>
-        @font-face {{
-            font-family: "TaiwanPearl";
-            src: url("file:///ttf/TaiwanPearl-Medium.ttf");
-            font-weight: normal;
-            font-style: normal;
-        }}
-        body, #screenshot-target {{
-            font-family: "TaiwanPearl", 'Segoe UI','Noto Sans TC','Microsoft JhengHei',sans-serif;
-        }}
-      </style>
+    <style>
+    @font-face {
+      font-family: 'PopGothic';
+      src: url("file:///usr/share/fonts/fft/PopGothicCjkTc-Regular.ttf");
+      font-weight: normal;
+      font-style: normal;
+    }
+    body, #screenshot-target {
+      font-family: 'PopGothic', 'Segoe UI', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+    }
+    </style>
     </head>
     <body style="margin:0;padding:0;">
     <div id="screenshot-target" style="width:360px;height:300px;position:relative;
