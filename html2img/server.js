@@ -54,7 +54,8 @@ async function getBrowser() {
       '--disable-gpu',
       '--single-process',
       '--no-zygote',
-      '--disable-web-security'
+      '--disable-web-security',
+      '--allow-file-access-from-files'
     ]
   });
 }

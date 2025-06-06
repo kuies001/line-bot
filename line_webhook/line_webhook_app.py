@@ -1588,7 +1588,7 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
       <style>
         @font-face {{
             font-family: "TaiwanPearl";
-            src: url("file:///ttf/PopGothicCjkTc-Regular.ttf");
+            src: url("file:///ttf/TaiwanPearl-Medium.ttf");
             font-weight: normal;
             font-style: normal;
         }}
