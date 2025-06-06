@@ -1584,12 +1584,23 @@ def build_weather_aqi_html(weather: dict, aqi: dict) -> str:
 
     return f'''
     <html>
-    <body style="margin:0;padding:0;">
+    <head>
+      <style>
+        @font-face {{
+            font-family: "TaiwanPearl";
+            src: url("TaiwanPearl-Medium.ttf");
+            font-weight: normal;
+            font-style: normal;
+        }}
+        body, #screenshot-target {{
+            font-family: "TaiwanPearl", 'Segoe UI','Noto Sans TC','Microsoft JhengHei',sans-serif;
+        }}
+      </style>
+    </head>
     <body style="margin:0;padding:0;">
     <div id="screenshot-target" style="width:360px;height:300px;position:relative;
         background:{bg};
         border-radius:36px;box-shadow:0 4px 24px #eee;
-        font-family:'Comic Sans MS','DFKai-SB','Segoe UI','Noto Sans TC','Microsoft JhengHei',sans-serif;
         color:#222;overflow:hidden;">
       <!-- 天氣 ICON + 溫度(大)（新版：flex 水平置中+基線對齊） -->
       <div style="position:absolute;top:60px;left:0;right:0;display:flex;justify-content:center;align-items:center;">
