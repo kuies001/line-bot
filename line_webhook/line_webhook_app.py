@@ -1284,13 +1284,21 @@ def handle_message(event):
 
         combined_report = (
             f"{market_simple}\n\n"
-            f"{tsmc_simple}"
+            f"{tsmc_simple}\n\n"
+            f"{weather_line}\n\n"
+            f"{aqi_line}"
         )
 
-        weather_img_url, twse_img_url = None, None
-        messages = [TextMessage(text=combined_report)]
+        with ApiClient(configuration) as api_client:
+            line_bot_api = MessagingApi(api_client)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text=combined_report)]
+                )
+            )
 
-        # 產圖流程直接在主 thread 等待
+        weather_img_url, twse_img_url = None, None
         if is_business_day():
             try:
                 weather_data = get_kaohsiung_weather_dict()
@@ -1312,54 +1320,14 @@ def handle_message(event):
             else:
                 print("No intraday csv found, skip twse chart", file=sys.stderr)
 
-            # 只要圖有成功，直接組進 reply_message
-            if weather_img_url:
-                messages.append(ImageMessage(
-                    original_content_url=weather_img_url,
-                    preview_image_url=weather_img_url
-                ))
-            if twse_img_url:
-                messages.append(ImageMessage(
-                    original_content_url=twse_img_url,
-                    preview_image_url=twse_img_url
-                ))
+            threading.Thread(
+                target=send_extra_images,
+                args=(source_user_id, weather_img_url, twse_img_url)
+            ).start()
 
-        # 不用 threading，不用 push_message，直接 reply_message
-        with ApiClient(configuration) as api_client:
-            line_bot_api = MessagingApi(api_client)
-            line_bot_api.reply_message_with_http_info(
-                ReplyMessageRequest(
-                    reply_token=reply_token,
-                    messages=messages
-                )
-            )
         return "OK"
 
-        # 先產圖
-        img_path = gen_twse_intraday_chart()
-        img_url = "https://rpi.kuies.tw/static/twse_intraday.png"
 
-        messages = [TextMessage(text=combined_report)]
-        if weather_img_url:
-            messages.append(ImageMessage(
-                original_content_url=weather_img_url,
-                preview_image_url=weather_img_url
-            ))
-        if twse_img_url:
-            messages.append(ImageMessage(
-                original_content_url=twse_img_url,
-                preview_image_url=twse_img_url
-            ))
-
-        with ApiClient(configuration) as api_client:
-            line_bot_api = MessagingApi(api_client)
-            line_bot_api.reply_message_with_http_info(
-                ReplyMessageRequest(
-                    reply_token=reply_token,
-                    messages=messages
-                )
-            )
-        return "OK"
 
     # ====== 天氣圖卡功能 ======
     elif text_from_user.startswith("天氣"):
