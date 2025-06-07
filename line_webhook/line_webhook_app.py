@@ -68,6 +68,29 @@ LLM_POLLING_INTERVAL_MINUTES = int(os.getenv('LLM_POLLING_INTERVAL_MINUTES', '60
 CWA_API_KEY = os.getenv('CWA_API_KEY') # CWA 氣象 API 金鑰
 EPA_API_KEY = os.getenv('EPA_API_KEY') # EPA AQI API 金鑰
 
+# === 地名對應設定 ===
+COUNTY_ALIASES = {
+    "台北": "臺北市",
+    "台北市": "臺北市",
+    "台中": "臺中市",
+    "台中市": "臺中市",
+    "台南": "臺南市",
+    "台南市": "臺南市",
+    "台東": "臺東縣",
+    "台東縣": "臺東縣",
+    "楠梓": "高雄市",
+    "楠梓區": "高雄市",
+    "清境農場": "南投縣",
+    "日月潭": "南投縣",
+}
+
+COUNTIES = [
+    "基隆市", "臺北市", "新北市", "桃園市", "臺中市", "臺南市", "高雄市",
+    "新竹縣", "新竹市", "苗栗縣", "彰化縣", "南投縣", "雲林縣", "嘉義縣",
+    "嘉義市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣", "金門縣", "澎湖縣",
+    "連江縣",
+]
+
 
 # LLM的prompt檔案
 load_dotenv()
@@ -1338,6 +1361,29 @@ def handle_message(event):
             )
         return "OK"
 
+    # ====== 天氣圖卡功能 ======
+    elif text_from_user.startswith("天氣"):
+        query = text_from_user.replace("天氣", "", 1).strip()
+        county = normalize_county_name(query)
+        try:
+            img_url = generate_weather_image(county)
+            with ApiClient(configuration) as api_client:
+                line_bot_api = MessagingApi(api_client)
+                line_bot_api.reply_message_with_http_info(
+                    ReplyMessageRequest(
+                        reply_token=reply_token,
+                        messages=[
+                            ImageMessage(
+                                original_content_url=img_url,
+                                preview_image_url=img_url,
+                            )
+                        ],
+                    )
+                )
+            return "OK"
+        except Exception as e:
+            reply_text = f"❌ 讀取天氣失敗：{e}"
+
     # ====== 新增新聞爬蟲功能 ======
     elif text_from_user == "新聞":
         print(f"DEBUG: Matched '新聞' command. Fetching news...", file=sys.stderr)
@@ -1697,6 +1743,68 @@ def render_html_to_image(html_content: str) -> str:
     except Exception as e:
         print(f"❌ HTML2IMG 呼叫錯誤：{e}", file=sys.stderr)
         return "https://i.imgur.com/yT8VKpP.png"
+
+
+def normalize_county_name(query: str) -> str:
+    """Map user input to a valid CWA county name."""
+    q = (query or "").strip()
+    if not q:
+        return "高雄市"
+    for k, v in COUNTY_ALIASES.items():
+        if k in q:
+            return v
+    for c in COUNTIES:
+        if c in q or c.replace("臺", "台") in q:
+            return c
+    return q
+
+
+def get_weather_dict_by_county(county: str) -> dict:
+    """Fetch weather data for the given county."""
+    if not CWA_API_KEY:
+        raise ValueError("CWA_API_KEY not set")
+    url = (
+        "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001"
+        f"?Authorization={CWA_API_KEY}&locationName={county}"
+    )
+    res = requests.get(url, timeout=10)
+    res.raise_for_status()
+    data = res.json()
+    loc = data.get("records", {}).get("location", [{}])[0]
+    elements = {e["elementName"]: e for e in loc.get("weatherElement", [])}
+
+    def elem_val(name: str) -> str:
+        return (
+            elements.get(name, {})
+            .get("time", [{}])[0]
+            .get("parameter", {})
+            .get("parameterName", "N/A")
+        )
+
+    return {
+        "location": county,
+        "desc": elem_val("Wx"),
+        "min_temp": elem_val("MinT"),
+        "max_temp": elem_val("MaxT"),
+        "pop": elem_val("PoP"),
+        "comfort": elem_val("CI"),
+    }
+
+
+def generate_weather_image(county: str) -> str:
+    """Generate weather card image for the county."""
+    weather = get_weather_dict_by_county(county)
+    if county == "高雄市":
+        aqi = get_kaohsiung_aqi_dict()
+    else:
+        aqi = {
+            "station": "",
+            "value": "N/A",
+            "status": "",
+            "time": datetime.now(tz).strftime("%H:%M"),
+        }
+    html = build_weather_aqi_html(weather, aqi)
+    return render_html_to_image(html)
 
 
 def get_kaohsiung_weather_dict() -> dict:
