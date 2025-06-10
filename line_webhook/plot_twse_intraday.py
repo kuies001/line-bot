@@ -25,6 +25,11 @@ df = pd.read_csv(CSV_PATH)
 today = datetime.datetime.now().strftime("%Y-%m-%d")
 df = df[df["datetime"].str.startswith(today)]
 
+# 若沒有任何今日成交資料，直接結束避免後續錯誤
+if df.empty or df["price"].dropna().empty:
+    print("No intraday data available for plotting.")
+    raise SystemExit(0)
+
 # 轉成datetime格式
 df["datetime"] = pd.to_datetime(df["datetime"])
 
