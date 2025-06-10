@@ -114,7 +114,7 @@ def archive_html2img_output():
         print(f'ERROR: archive_html2img_output failed: {e}', file=sys.stderr)
 
 schedule.every().day.at("00:00").do(rollover_prompt)
-schedule.every().day.at("00:00").do(archive_html2img_output)
+schedule.every(7).days.at("00:00").do(archive_html2img_output)
 
 def run_scheduler():  
     while True:  
@@ -923,6 +923,34 @@ def gen_twse_intraday_chart(out_path=None):
     print(f"[即時走勢] 圖檔已存到 {out_path}")
     return out_path
 
+def capture_wantgoo_index_chart() -> Optional[str]:
+    """Capture screenshot of Weighted Index chart from WantGoo."""
+    import uuid
+    out_filename = f"wantgoo_{uuid.uuid4().hex}.png"
+    out_path = os.path.join(SHARED_DIR, out_filename)
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled"],
+            )
+            context = browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/114.0.0.0 Safari/537.36"
+                )
+            )
+            page = context.new_page()
+            page.goto("https://www.wantgoo.com/index/0000", timeout=60000)
+            page.wait_for_timeout(5000)
+            page.screenshot(path=out_path, full_page=True)
+            browser.close()
+        return f"https://rpi.kuies.tw/static/{out_filename}"
+    except Exception as e:
+        print(f"產 Wantgoo 圖掛掉：{e}", file=sys.stderr)
+        return None
+
 # 使用自訂prompt
 USER_PROMPT_MAP_FILE = "/app/config/user_prompt_map.json"
 
@@ -1214,7 +1242,7 @@ def handle_message(event):
             f"{tsmc_simple}"
         )
 
-        weather_img_url, twse_img_url = None, None
+        weather_img_url, twse_img_url, wantgoo_img_url = None, None, None
         messages = [TextMessage(text=combined_report)]
 
         # 產圖流程直接在主 thread 等待
@@ -1234,6 +1262,10 @@ def handle_message(event):
                 twse_img_url = f"https://rpi.kuies.tw/static/twse_intraday.png?nocache={random.randint(1000,9999)}"
             except Exception as e:
                 print(f"產分時圖掛掉：{e}", file=sys.stderr)
+            try:
+                wantgoo_img_url = capture_wantgoo_index_chart()
+            except Exception as e:
+                print(f"產 Wantgoo 圖掛掉：{e}", file=sys.stderr)
 
             # 只要圖有成功，直接組進 reply_message
             if weather_img_url:
@@ -1245,6 +1277,11 @@ def handle_message(event):
                 messages.append(ImageMessage(
                     original_content_url=twse_img_url,
                     preview_image_url=twse_img_url
+                ))
+            if wantgoo_img_url:
+                messages.append(ImageMessage(
+                    original_content_url=wantgoo_img_url,
+                    preview_image_url=wantgoo_img_url
                 ))
 
         # 不用 threading，不用 push_message，直接 reply_message
