@@ -928,6 +928,9 @@ def capture_wantgoo_index_chart() -> Optional[str]:
     import uuid
     out_filename = f"wantgoo_{uuid.uuid4().hex}.png"
     out_path = os.path.join(SHARED_DIR, out_filename)
+    # Ensure Playwright can locate its browser binaries even if HOME is unset
+    if not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/root/.cache/ms-playwright"
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(

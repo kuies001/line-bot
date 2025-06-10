@@ -16,6 +16,9 @@ SHARED_DIR = os.getenv("SHARED_DIR", "/shared")
 CSV_PATH = os.path.join(SHARED_DIR, "twse_intraday.csv")
 OUT_PATH = os.path.join(SHARED_DIR, "twse_intraday.png")
 
+if not os.path.exists(CSV_PATH):
+    CSV_PATH = os.path.join(os.path.dirname(__file__), "twse_intraday.csv")
+
 df = pd.read_csv(CSV_PATH)
 
 # 只保留今天的資料
