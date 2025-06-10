@@ -16,11 +16,19 @@ SHARED_DIR = os.getenv("SHARED_DIR", "/shared")
 CSV_PATH = os.path.join(SHARED_DIR, "twse_intraday.csv")
 OUT_PATH = os.path.join(SHARED_DIR, "twse_intraday.png")
 
+if not os.path.exists(CSV_PATH):
+    CSV_PATH = os.path.join(os.path.dirname(__file__), "twse_intraday.csv")
+
 df = pd.read_csv(CSV_PATH)
 
 # 只保留今天的資料
 today = datetime.datetime.now().strftime("%Y-%m-%d")
 df = df[df["datetime"].str.startswith(today)]
+
+# 若沒有任何今日成交資料，直接結束避免後續錯誤
+if df.empty or df["price"].dropna().empty:
+    print("No intraday data available for plotting.")
+    raise SystemExit(0)
 
 # 轉成datetime格式
 df["datetime"] = pd.to_datetime(df["datetime"])
